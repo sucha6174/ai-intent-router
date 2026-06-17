@@ -7,13 +7,32 @@ app = FastAPI()
 
 @app.post("/chat")
 def chat(message: str):
-    # 1. Classify using LLM
-    intent_data = classify_intent(message)
-    
-    # 2. Route to specialized persona
+
+    # Manual intent override
+    if message.startswith("@code "):
+        intent_data = {"intent": "code", "confidence": 1.0}
+        message = message.replace("@code ", "", 1)
+
+    elif message.startswith("@data "):
+        intent_data = {"intent": "data", "confidence": 1.0}
+        message = message.replace("@data ", "", 1)
+
+    elif message.startswith("@writing "):
+        intent_data = {"intent": "writing", "confidence": 1.0}
+        message = message.replace("@writing ", "", 1)
+
+    elif message.startswith("@career "):
+        intent_data = {"intent": "career", "confidence": 1.0}
+        message = message.replace("@career ", "", 1)
+
+    else:
+        # Classify using LLM
+        intent_data = classify_intent(message)
+
+    # Route to specialized persona
     response_text = route_and_respond(message, intent_data)
 
-    # 3. Log the interaction
+    # Log interaction
     log_route(
         intent_data["intent"],
         intent_data["confidence"],
