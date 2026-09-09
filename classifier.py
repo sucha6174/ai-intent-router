@@ -7,7 +7,7 @@ load_dotenv()
 
 api_key = os.getenv("OPENAI_API_KEY")
 
-client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=api_key) if api_key else None
 
 CLASSIFIER_PROMPT = """
 Classify the user's intent.
@@ -27,6 +27,9 @@ Return JSON like:
 def classify_intent(message):
 
     try:
+
+        if not client:
+            raise ValueError("OpenAI API key not configured or client unavailable")
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",

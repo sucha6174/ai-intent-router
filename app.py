@@ -1,42 +1,72 @@
-from fastapi import FastAPI
+from typing import Optional
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from classifier import classify_intent
 from router import route_and_respond
 from logger import log_route
 
-app = FastAPI()
+app = FastAPI(
+    title="AI Intent Router",
+    description="Intelligent request routing system using LLM intent classification and specialized AI personas",
+    version="1.0.0"
+)
+
+
+class ChatRequest(BaseModel):
+    message: Optional[str] = None
+
+
+@app.get("/")
+def root():
+    return {
+        "status": "healthy",
+        "service": "AI Intent Router",
+        "endpoints": {
+            "chat": "/chat (POST)",
+            "docs": "/docs (GET)"
+        }
+    }
+
 
 @app.post("/chat")
-def chat(message: str):
+def chat(payload: Optional[ChatRequest] = None, message: Optional[str] = None):
+    # Extract message from JSON body or query parameter
+    user_message = (payload.message if payload and payload.message else None) or message
+    if not user_message:
+        raise HTTPException(
+            status_code=400,
+            detail="A non-empty 'message' field in the body or query parameter is required."
+        )
 
     # Manual intent override
-    if message.startswith("@code "):
+    if user_message.startswith("@code "):
         intent_data = {"intent": "code", "confidence": 1.0}
-        message = message.replace("@code ", "", 1)
+        user_message = user_message.replace("@code ", "", 1)
 
-    elif message.startswith("@data "):
+    elif user_message.startswith("@data "):
         intent_data = {"intent": "data", "confidence": 1.0}
-        message = message.replace("@data ", "", 1)
+        user_message = user_message.replace("@data ", "", 1)
 
-    elif message.startswith("@writing "):
+    elif user_message.startswith("@writing "):
         intent_data = {"intent": "writing", "confidence": 1.0}
-        message = message.replace("@writing ", "", 1)
+        user_message = user_message.replace("@writing ", "", 1)
 
-    elif message.startswith("@career "):
+    elif user_message.startswith("@career "):
         intent_data = {"intent": "career", "confidence": 1.0}
-        message = message.replace("@career ", "", 1)
+        user_message = user_message.replace("@career ", "", 1)
 
     else:
         # Classify using LLM
-        intent_data = classify_intent(message)
+        intent_data = classify_intent(user_message)
 
     # Route to specialized persona
-    response_text = route_and_respond(message, intent_data)
+    response_text = route_and_respond(user_message, intent_data)
 
     # Log interaction
     log_route(
         intent_data["intent"],
         intent_data["confidence"],
-        message,
+        user_message,
         response_text
     )
 
