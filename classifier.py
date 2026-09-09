@@ -44,7 +44,19 @@ def classify_intent(message):
 
         print("LLM RESPONSE:", content)
 
-        data = json.loads(content)
+        raw = content
+        if raw.startswith("```"):
+            lines = raw.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            raw = "\n".join(lines).strip()
+
+        data = json.loads(raw)
+
+        if not isinstance(data, dict) or "intent" not in data or "confidence" not in data:
+            raise ValueError(f"Malformed classifier response: {content}")
 
         return data
 

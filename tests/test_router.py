@@ -151,10 +151,9 @@ def test_swagger_conflict_resolution():
     assert res_a.json()["intent"] == "code"
     assert res_a.json()["confidence"] >= 0.7
 
-    # Case B: Swagger default 'string' in body, real user query in query param
+    # Case B: Query param only with no body
     res_b = client.post(
-        "/chat?message=How%20do%20I%20optimize%20this%20python%20function%3F",
-        json="string"
+        "/chat?message=How%20do%20I%20optimize%20this%20python%20function%3F"
     )
     assert res_b.status_code == 200
     assert res_b.json()["intent"] == "code"
@@ -165,3 +164,23 @@ def test_swagger_conflict_resolution():
     assert res_c.status_code == 200
     assert res_c.json()["intent"] == "code"
     assert res_c.json()["confidence"] >= 0.7
+
+
+def test_user_reported_intents():
+    test_cases = [
+        ("How do I optimize this python function?", "code", 0.7),
+        ("Write a professional email asking for leave.", "writing", 0.7),
+        ("Analyze this dataset and find the important trends.", "data", 0.7),
+        ("How should I prepare for a software developer interview?", "career", 0.7),
+        ("Hello", "unclear", 0.0),
+    ]
+    for prompt, expected_intent, min_conf in test_cases:
+        res = client.post("/chat", json={"message": prompt})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["intent"] == expected_intent
+        if expected_intent == "unclear":
+            assert data["confidence"] < 0.7
+        else:
+            assert data["confidence"] >= min_conf
+
