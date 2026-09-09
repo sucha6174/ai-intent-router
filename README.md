@@ -217,21 +217,27 @@ curl -X GET http://127.0.0.1:8000/
 
 - **Endpoint:** `POST /chat`
 - **Description:** Classifies user query, routes to domain expert, and generates response.
-- **Content-Type:** `application/json` (or URL query parameter)
+- **Interactive Swagger UI (`/docs`):** Provides a clean, direct **Message** text input box — type any query and click **Execute** (no JSON editing required).
+- **HTTP Methods Supported:** URL query parameter (`?message=...`) or JSON request body (`{"message": "..."}`).
 
-#### Request Format:
-```json
-{
-  "message": "How do I optimize a slow SQL join in PostgreSQL?"
-}
+#### Example 1: Direct Message Query (Swagger UI & URL parameter)
+```bash
+curl -X POST "http://127.0.0.1:8000/chat?message=How%20should%20I%20prepare%20for%20a%20software%20developer%20interview%3F"
+```
+
+#### Example 2: REST JSON Body
+```bash
+curl -X POST "http://127.0.0.1:8000/chat" \
+     -H "Content-Type: application/json" \
+     -d '{"message": "How should I prepare for a software developer interview?"}'
 ```
 
 #### Response Format:
 ```json
 {
-  "intent": "code",
-  "confidence": 0.95,
-  "response": "To optimize a slow SQL join in PostgreSQL, start by running EXPLAIN ANALYZE..."
+  "intent": "career",
+  "confidence": 0.8,
+  "response": "Career advisor selected. AI generation unavailable due to API quota."
 }
 ```
 
@@ -295,6 +301,8 @@ The test suite in `tests/test_router.py` verifies:
 - `test_logging_functionality`: Verifies interactions are appended correctly to `route_log.jsonl`.
 - `test_chat_direct_calls`: Verifies programmatic Python function calls (positional string, keyword, dict, and Pydantic model).
 - `test_swagger_conflict_resolution`: Verifies robust resolution of Swagger UI default parameters and JSON payload extraction.
+- `test_user_reported_intents`: Verifies all 5 user query scenarios (coding, data, writing, career, unclear) via JSON body.
+- `test_swagger_message_input_all_5_intents`: Verifies all 5 user query scenarios via Swagger UI message input (query parameter).
 
 ---
 

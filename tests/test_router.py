@@ -184,3 +184,24 @@ def test_user_reported_intents():
         else:
             assert data["confidence"] >= min_conf
 
+
+def test_swagger_message_input_all_5_intents():
+    """Verify that Swagger UI message input (query param) works for all 5 target scenarios."""
+    test_cases = [
+        ("How do I optimize this Python function?", "code", 0.7),
+        ("Analyze this dataset and find the important trends.", "data", 0.7),
+        ("Write a professional email asking for leave.", "writing", 0.7),
+        ("How should I prepare for a software developer interview?", "career", 0.7),
+        ("Hello", "unclear", 0.0),
+    ]
+    for prompt, expected_intent, min_conf in test_cases:
+        res = client.post(f"/chat?message={prompt}")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["intent"] == expected_intent
+        if expected_intent == "unclear":
+            assert data["confidence"] < 0.7
+        else:
+            assert data["confidence"] >= min_conf
+
+

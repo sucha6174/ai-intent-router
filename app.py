@@ -1,6 +1,7 @@
 import json
+import anyio
 from typing import Optional, Union
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from classifier import classify_intent
 from router import route_and_respond
@@ -21,8 +22,29 @@ class ChatRequest(BaseModel):
     )
 
 
-def extract_user_message(payload, message):
-    # 1. Extract from payload (JSON body, dict, object, or string)
+def extract_user_message(message=None, request: Request = None, payload=None):
+    candidates = []
+
+    # 1. Direct message argument (string, dict, ChatRequest, or query parameter)
+    if message is not None:
+        if isinstance(message, str):
+            trimmed = message.strip()
+            if trimmed.startswith("{") and trimmed.endswith("}"):
+                try:
+                    data = json.loads(trimmed)
+                    if isinstance(data, dict) and "message" in data and data["message"]:
+                        candidates.append(str(data["message"]).strip())
+                except Exception:
+                    pass
+            if trimmed:
+                candidates.append(trimmed)
+        elif isinstance(message, dict):
+            if "message" in message and message["message"]:
+                candidates.append(str(message["message"]).strip())
+        elif hasattr(message, "message") and message.message:
+            candidates.append(str(message.message).strip())
+
+    # 2. Payload argument if provided directly in Python invocations
     if payload is not None:
         if isinstance(payload, str):
             trimmed = payload.strip()
@@ -30,43 +52,42 @@ def extract_user_message(payload, message):
                 try:
                     data = json.loads(trimmed)
                     if isinstance(data, dict) and "message" in data and data["message"]:
-                        return str(data["message"]).strip()
+                        candidates.append(str(data["message"]).strip())
                 except Exception:
                     pass
-            if trimmed and trimmed != "string":
-                return trimmed
+            if trimmed:
+                candidates.append(trimmed)
         elif isinstance(payload, dict):
-            if "message" in payload and payload["message"] and str(payload["message"]).strip() != "string":
-                return str(payload["message"]).strip()
-            elif "message" in payload and payload["message"]:
-                return str(payload["message"]).strip()
+            if "message" in payload and payload["message"]:
+                candidates.append(str(payload["message"]).strip())
         elif hasattr(payload, "message") and payload.message:
-            val = str(payload.message).strip()
-            if val != "string":
-                return val
+            candidates.append(str(payload.message).strip())
 
-    # 2. Extract from query parameter
-    if message is not None and str(message).strip() != "" and str(message).strip() != "string":
-        trimmed = str(message).strip()
-        if trimmed.startswith("{") and trimmed.endswith("}"):
-            try:
-                data = json.loads(trimmed)
-                if isinstance(data, dict) and "message" in data and data["message"]:
-                    return str(data["message"]).strip()
-            except Exception:
-                pass
-        return trimmed
+    # 3. HTTP Request body (if request object is provided)
+    if request is not None and isinstance(request, Request):
+        try:
+            body_bytes = anyio.from_thread.run(request.body)
+            if body_bytes:
+                body_str = body_bytes.decode("utf-8", errors="ignore").strip()
+                if body_str:
+                    try:
+                        data = json.loads(body_str)
+                        if isinstance(data, dict) and "message" in data and data["message"]:
+                            candidates.append(str(data["message"]).strip())
+                        elif isinstance(data, str) and data.strip():
+                            candidates.append(data.strip())
+                    except Exception:
+                        candidates.append(body_str)
+        except Exception:
+            pass
 
-    # Fallback to payload or query if only "string" was provided
-    if payload is not None:
-        if isinstance(payload, str) and payload.strip():
-            return payload.strip()
-        elif hasattr(payload, "message") and payload.message:
-            return str(payload.message).strip()
-        elif isinstance(payload, dict) and "message" in payload and payload["message"]:
-            return str(payload["message"]).strip()
-    if message is not None and str(message).strip():
-        return str(message).strip()
+    # Strip empty and prioritize non-placeholder strings
+    valid_candidates = [str(c).strip() for c in candidates if c is not None and str(c).strip() != ""]
+    non_placeholder = [c for c in valid_candidates if c != "string"]
+    if non_placeholder:
+        return non_placeholder[0]
+    if valid_candidates:
+        return valid_candidates[0]
 
     return None
 
@@ -85,11 +106,14 @@ def root():
 
 @app.post("/chat")
 def chat(
-    payload: Optional[ChatRequest] = None,
-    message: Optional[str] = Query(default=None, include_in_schema=False)
+    message: Optional[str] = Query(
+        default=None,
+        description="Type your message here..."
+    ),
+    request: Request = None
 ):
-    # Support direct string argument, dict, ChatRequest model, or query parameter
-    user_message = extract_user_message(payload, message)
+    # Support query parameter, direct string argument, dict, ChatRequest model, or JSON body
+    user_message = extract_user_message(message=message, request=request)
 
     if not user_message:
         raise HTTPException(
