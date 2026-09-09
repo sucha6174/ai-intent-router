@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from classifier import classify_intent
@@ -29,9 +29,21 @@ def root():
 
 
 @app.post("/chat")
-def chat(payload: Optional[ChatRequest] = None, message: Optional[str] = None):
-    # Extract message from JSON body or query parameter
-    user_message = (payload.message if payload and payload.message else None) or message
+def chat(payload: Optional[Union[ChatRequest, dict, str]] = None, message: Optional[str] = None):
+    # Support direct string argument, dict, ChatRequest model, or query parameter
+    user_message = None
+    if isinstance(payload, str):
+        user_message = payload
+    elif isinstance(payload, dict):
+        user_message = payload.get("message")
+    elif isinstance(payload, ChatRequest):
+        user_message = payload.message
+    elif hasattr(payload, "message"):
+        user_message = payload.message
+
+    if not user_message and message:
+        user_message = message
+
     if not user_message:
         raise HTTPException(
             status_code=400,

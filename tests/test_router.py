@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi.testclient import TestClient
-from app import app
+from app import app, chat, ChatRequest
 from classifier import classify_intent
 from router import route_and_respond
 from logger import log_file
@@ -117,3 +117,25 @@ def test_logging_functionality():
     assert "user_message" in last_entry
     assert "final_response" in last_entry
     assert last_entry["user_message"] == test_msg
+
+
+def test_chat_direct_calls():
+    # Positional string invocation
+    r1 = chat("Fix this python syntax error")
+    assert r1["intent"] == "code"
+    assert r1["confidence"] >= 0.7
+
+    # Keyword argument invocation
+    r2 = chat(message="Fix this python syntax error")
+    assert r2["intent"] == "code"
+    assert r2["confidence"] >= 0.7
+
+    # Dictionary invocation
+    r3 = chat({"message": "Fix this python syntax error"})
+    assert r3["intent"] == "code"
+    assert r3["confidence"] >= 0.7
+
+    # Pydantic model invocation
+    r4 = chat(ChatRequest(message="Fix this python syntax error"))
+    assert r4["intent"] == "code"
+    assert r4["confidence"] >= 0.7

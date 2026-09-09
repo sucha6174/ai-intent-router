@@ -1,4 +1,4 @@
-﻿# AI Intent Router
+# AI Intent Router
 
 An intelligent, resilient request-routing service built with **FastAPI** and **OpenAI**. The system dynamically classifies user intent using LLMs, evaluates confidence scores, routes prompts to domain-expert personas, and provides robust keyword-based and response fallbacks if external AI services are unreachable or unconfigured.
 
@@ -293,6 +293,7 @@ The test suite in `tests/test_router.py` verifies:
 - `test_router_unclear_intent`: Verifies `unclear` intent handling.
 - `test_manual_intent_overrides`: Verifies `@code`, `@data`, `@writing`, and `@career` prefixes bypass classification with 1.0 confidence.
 - `test_logging_functionality`: Verifies interactions are appended correctly to `route_log.jsonl`.
+- `test_chat_direct_calls`: Verifies programmatic Python function calls (positional string, keyword, dict, and Pydantic model).
 
 ---
 
