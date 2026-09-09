@@ -139,3 +139,29 @@ def test_chat_direct_calls():
     r4 = chat(ChatRequest(message="Fix this python syntax error"))
     assert r4["intent"] == "code"
     assert r4["confidence"] >= 0.7
+
+
+def test_swagger_conflict_resolution():
+    # Case A: Swagger default 'string' in query param, real user query in body
+    res_a = client.post(
+        "/chat?message=string",
+        json={"message": "How do I optimize this python function?"}
+    )
+    assert res_a.status_code == 200
+    assert res_a.json()["intent"] == "code"
+    assert res_a.json()["confidence"] >= 0.7
+
+    # Case B: Swagger default 'string' in body, real user query in query param
+    res_b = client.post(
+        "/chat?message=How%20do%20I%20optimize%20this%20python%20function%3F",
+        json="string"
+    )
+    assert res_b.status_code == 200
+    assert res_b.json()["intent"] == "code"
+    assert res_b.json()["confidence"] >= 0.7
+
+    # Case C: JSON string in query param
+    res_c = client.post('/chat?message={"message": "How do I optimize this python function?"}')
+    assert res_c.status_code == 200
+    assert res_c.json()["intent"] == "code"
+    assert res_c.json()["confidence"] >= 0.7

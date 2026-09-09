@@ -294,6 +294,7 @@ The test suite in `tests/test_router.py` verifies:
 - `test_manual_intent_overrides`: Verifies `@code`, `@data`, `@writing`, and `@career` prefixes bypass classification with 1.0 confidence.
 - `test_logging_functionality`: Verifies interactions are appended correctly to `route_log.jsonl`.
 - `test_chat_direct_calls`: Verifies programmatic Python function calls (positional string, keyword, dict, and Pydantic model).
+- `test_swagger_conflict_resolution`: Verifies robust resolution of Swagger UI default parameters and JSON payload extraction.
 
 ---
 

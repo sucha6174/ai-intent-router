@@ -1,6 +1,7 @@
+import json
 from typing import Optional, Union
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from classifier import classify_intent
 from router import route_and_respond
 from logger import log_route
@@ -13,7 +14,64 @@ app = FastAPI(
 
 
 class ChatRequest(BaseModel):
-    message: Optional[str] = None
+    message: Optional[str] = Field(
+        default=None,
+        description="User query to classify and route",
+        json_schema_extra={"example": "How do I optimize this python function?"}
+    )
+
+
+def extract_user_message(payload, message):
+    candidates = []
+
+    # 1. Extract from payload (JSON body, dict, object, or string)
+    if payload is not None:
+        if isinstance(payload, str):
+            trimmed = payload.strip()
+            if trimmed.startswith("{") and trimmed.endswith("}"):
+                try:
+                    data = json.loads(trimmed)
+                    if isinstance(data, dict) and "message" in data and data["message"]:
+                        candidates.append(data["message"])
+                    else:
+                        candidates.append(payload)
+                except Exception:
+                    candidates.append(payload)
+            else:
+                candidates.append(payload)
+        elif isinstance(payload, dict):
+            if "message" in payload and payload["message"]:
+                candidates.append(payload["message"])
+        elif hasattr(payload, "message") and payload.message:
+            candidates.append(payload.message)
+
+    # 2. Extract from query parameter
+    if message is not None and str(message).strip() != "":
+        trimmed = str(message).strip()
+        if trimmed.startswith("{") and trimmed.endswith("}"):
+            try:
+                data = json.loads(trimmed)
+                if isinstance(data, dict) and "message" in data and data["message"]:
+                    candidates.append(data["message"])
+                else:
+                    candidates.append(str(message))
+            except Exception:
+                candidates.append(str(message))
+        else:
+            candidates.append(str(message))
+
+    # Strip and filter empty candidate strings
+    candidates = [str(c).strip() for c in candidates if c is not None and str(c).strip() != ""]
+
+    # If non-placeholder query exists, prioritize over Swagger UI default "string"
+    non_placeholder = [c for c in candidates if c != "string"]
+    if non_placeholder:
+        return non_placeholder[0]
+
+    if candidates:
+        return candidates[0]
+
+    return None
 
 
 @app.get("/")
@@ -31,18 +89,7 @@ def root():
 @app.post("/chat")
 def chat(payload: Optional[Union[ChatRequest, dict, str]] = None, message: Optional[str] = None):
     # Support direct string argument, dict, ChatRequest model, or query parameter
-    user_message = None
-    if isinstance(payload, str):
-        user_message = payload
-    elif isinstance(payload, dict):
-        user_message = payload.get("message")
-    elif isinstance(payload, ChatRequest):
-        user_message = payload.message
-    elif hasattr(payload, "message"):
-        user_message = payload.message
-
-    if not user_message and message:
-        user_message = message
+    user_message = extract_user_message(payload, message)
 
     if not user_message:
         raise HTTPException(
